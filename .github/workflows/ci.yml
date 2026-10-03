@@ -1,0 +1,92 @@
+# CI mirrors the AGENTS.md verification workflow exactly:
+#   1. ruff check .          (the pinned select set in pyproject is the gate)
+#   2. py_compile            (compile gate on all shipped modules)
+#   3. bot import gate       (wiring regression catch without starting the pipeline)
+#   4. pytest tests/ -q      (offline suite; no LLM/TTS servers, no mic)
+# config.yaml is gitignored -> first CI step after checkout copies the template,
+# same as the Quick-start cp step; conftest switches the suite off without it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      # Ruff reads its pin + select set straight from pyproject.toml, so no
+      # project install needed here -- keeps this job free of portaudio.
+      - name: Install ruff (lint extra pin)
+        run: python -m pip install "ruff>=0.8"
+
+      - name: Ruff gate
+        run: ruff check .
+
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # PyAudio (pulled by pipecat-ai[local]) ships no Linux wheels -- sdist
+      # build needs portaudio headers. Runners have passwordless sudo; local
+      # Windows/WSL venvs never hit this because win_amd64 wheels exist.
+      - name: Install portaudio headers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq portaudio19-dev
+
+      - name: Install (test extra)
+        run: python -m pip install -e ".[test]"
+
+      # Fresh-clone step from AGENTS.md; the real config.yaml stays local.
+      - name: First-run config
+        run: cp config_template.yaml config.yaml
+
+      # Moonshine loads ONNX weights into model_cache/ on first use (~8 s cold).
+      # The key embeds the run id so every run MAY save a fresh cache;
+      # restore-keys fall back to the newest previous one on misses.
+      - name: Restore Moonshine model cache
+        uses: actions/cache@v4
+        with:
+          path: model_cache
+          key: moonshine-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            moonshine-cache-${{ runner.os }}-
+
+      - name: Compile gate
+        run: python -m py_compile config.py bot.py services/*.py
+
+      - name: Bot import gate
+        run: |
+          python - <<'PY'
+          import importlib.util
+
+          spec = importlib.util.spec_from_file_location("bot", "bot.py")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          print("bot import OK")
+          PY
+
+      - name: Offline test suite
+        run: python -m pytest tests/ -q

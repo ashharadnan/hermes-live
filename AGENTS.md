@@ -113,6 +113,26 @@ Extending the suite — conventions every new test must follow:
 - **Zero hardcoded tunables in tests too** — derive expected values from
   `CFG.*`; the bot-contract AST scan is the pattern for enforcing it.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` mirrors this file's verification workflow on every
+push to main and every PR, as two jobs on ubuntu-latest / Python 3.12:
+
+- `lint` — `ruff check .` only. No project install (ruff reads its pin and
+  select set from `pyproject.toml`), so this job never touches portaudio.
+- `test` — `py_compile` + bot import gate + `pytest tests/ -q` after
+  `pip install -e ".[test]"`.
+
+What CI must add that a local run does not (all encoded in the workflow, not
+the repo):
+
+- `cp config_template.yaml config.yaml` — config.yaml is gitignored; conftest
+  switches the whole suite off without it (Fresh-clone safety above).
+- `portaudio19-dev` via apt — PyAudio (pulled by `pipecat-ai[local]`) ships
+  Windows wheels only, so the sdist build needs portaudio headers on Linux.
+- `actions/cache` on `model_cache/` — Moonshine downloads ONNX weights once
+  (~8 s cold); a prior run's cache makes later runs load warm.
+
 ## Code style
 
 Google docstrings; ASCII-only; comments only where strictly necessary (single
