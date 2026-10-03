@@ -23,8 +23,8 @@ async def _feed(agg: SentenceBatchAggregator, stream: str, chunk: int) -> list[s
     return got
 
 
-async def test_two_sentence_shape_lead2_carry2() -> None:
-    """lead=2/carry=2 (two_sentence equivalent): pair, pair; zero loss."""
+async def test_lead2_carry2_shape_matches_ab_winner() -> None:
+    """lead=2/carry=2 (the A/B winner config: no gaps, TTFA 1.5-2.5s)."""
     agg = SentenceBatchAggregator(lead=2, carry=2)
     got = await _feed(agg, FOUR, 5)
     assert len(got) == 2
@@ -103,6 +103,7 @@ async def test_reset_clears_buffer_and_quota() -> None:
 
 
 async def test_empty_and_whitespace_streams_produce_nothing() -> None:
+    """Empty and whitespace-only streams never produce releases."""
     agg = SentenceBatchAggregator(lead=1, carry=2)
     got = await _feed(agg, "", 4)
     got += await _feed(agg, "   ", 4)

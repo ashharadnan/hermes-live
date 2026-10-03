@@ -17,13 +17,13 @@ tts:
   model: chatterbox-turbo               # TTS model name
   voice: Dee                            # voice reference
   stop_frame_timeout_s: 15.0            # no-audio window; default 3.0s is too tight under GPU load
-  aggregation_mode: sentence            # sentence = per-sentence requests (fast first audio,
+  aggregation_mode: batch               # sentence = per-sentence requests (fast first audio,
                                         # starvation gaps possible on long replies); token =
                                         # one request per word, ONLY for TTS engines that
                                         # pipeline within a request - NOT Chatterbox;
-                                        # two_sentence = uniform pairs (no gaps, TTFA
-                                        # 1.5-2.5s); batch = lead/carry split below
-  batch_lead: 1                         # sentences in the FIRST release (aggregation_mode: batch)
+                                        # batch = lead/carry below;
+                                        # batch(2,2) produces no gaps, Ear test winner;
+  batch_lead: 2                         # sentences in the FIRST release (aggregation_mode: batch)
   batch_carry: 2                        # sentences in every release after (bigger = wider cushion)
 
 audio:

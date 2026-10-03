@@ -185,6 +185,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Profiler files
+*.lprof
+profile_output*
+
 # Jetbrains Air
 .air
 

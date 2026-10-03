@@ -15,7 +15,6 @@ from pipecat.utils.text.base_text_aggregator import (
 # rare mis-split only shifts which boundary pairs up, never loses text.
 _SPLIT = re.compile(r"""(?<=[.!?])[ \t]+(?=[A-Z'"\(])""")
 
-
 class SentenceBatchAggregator(BaseTextAggregator):
     """Group sentences into requests: first release holds `lead` sentences,
     every following release holds `carry` sentences.
@@ -37,7 +36,7 @@ class SentenceBatchAggregator(BaseTextAggregator):
         aggregation_type: AggregationType = AggregationType.SENTENCE,
         language: str | None = None,
     ) -> None:
-        """Initialize with an empty buffer and a full quota for the lead."""
+        """Initialise with an empty buffer and a full quota for the lead."""
         super().__init__(aggregation_type=aggregation_type, language=language)
         self._lead = max(1, lead)
         self._carry = max(1, carry)

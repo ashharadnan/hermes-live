@@ -26,12 +26,10 @@ class ChatterboxTTSService(OpenAITTSService):
         batch: tuple[int, int] | None = None
         if mode == "batch":
             batch = (CFG.tts.batch_lead, CFG.tts.batch_carry)
-        elif mode == "two_sentence":
-            batch = (2, 2)
         elif mode not in ("sentence", "token"):
             raise ValueError(
                 f"tts.aggregation_mode '{mode}' is not"
-                " sentence/token/batch/two_sentence"
+                " sentence/token/batch"
             )
         super().__init__(
             api_key="not-needed",
@@ -41,11 +39,10 @@ class ChatterboxTTSService(OpenAITTSService):
             text_aggregation_mode="token" if mode == "token" else "sentence",
             **kwargs,
         )
-        self._text_aggregator = (
-            SentenceBatchAggregator(lead=batch[0], carry=batch[1])
-            if batch is not None
-            else None
-        )
+        if batch is not None:
+            self._text_aggregator = SentenceBatchAggregator(
+                lead=batch[0], carry=batch[1]
+            )
         logger.info(
             f"ChatterboxTTSService -> {base_url} model={model} voice={voice}"
             f" aggregation={mode}"

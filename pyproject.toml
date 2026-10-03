@@ -17,6 +17,7 @@ test = [
     "pytest-asyncio>=1",
     "pytest-timeout>=2.4",
 ]
+profiler = ["line_profiler>=5.0.0"]
 
 [build-system]
 requires = ["setuptools>=68"]
