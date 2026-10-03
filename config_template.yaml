@@ -17,6 +17,10 @@ tts:
   model: chatterbox-turbo               # TTS model name
   voice: Dee                            # voice reference
   stop_frame_timeout_s: 15.0            # no-audio window; default 3.0s is too tight under GPU load
+  aggregation_mode: sentence            # sentence = per-sentence requests (fast first audio,
+                                        # starvation gaps possible on long replies); token =
+                                        # one request per word, ONLY for TTS engines that
+                                        # pipeline within a request - NOT Chatterbox
 
 audio:
   in_sample_rate: 16000                 # Moonshine expects 16 kHz mono

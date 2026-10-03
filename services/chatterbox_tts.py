@@ -19,11 +19,18 @@ class ChatterboxTTSService(OpenAITTSService):
                  voice: str = CFG.tts.voice, **kwargs) -> None:
         # Client-side voice gate rejects non-OpenAI voices before any request.
         VALID_VOICES[voice] = voice
+        mode = CFG.tts.aggregation_mode
+        if mode not in ("sentence", "token"):
+            raise ValueError(f"tts.aggregation_mode '{mode}' is not sentence/token")
         super().__init__(
             api_key="not-needed",
             base_url=base_url,
             settings=self.Settings(model=model, voice=voice),
             stop_frame_timeout_s=CFG.tts.stop_frame_timeout_s,
+            text_aggregation_mode=mode,
             **kwargs,
         )
-        logger.info(f"ChatterboxTTSService -> {base_url} model={model} voice={voice}")
+        logger.info(
+            f"ChatterboxTTSService -> {base_url} model={model} voice={voice}"
+            f" aggregation={mode}"
+        )
