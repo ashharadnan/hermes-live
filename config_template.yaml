@@ -20,7 +20,9 @@ tts:
   aggregation_mode: sentence            # sentence = per-sentence requests (fast first audio,
                                         # starvation gaps possible on long replies); token =
                                         # one request per word, ONLY for TTS engines that
-                                        # pipeline within a request - NOT Chatterbox
+                                        # pipeline within a request - NOT Chatterbox;
+                                        # two_sentence = batch two sentences per request
+                                        # (no gaps, first audio waits for two sentences)
 
 audio:
   in_sample_rate: 16000                 # Moonshine expects 16 kHz mono
