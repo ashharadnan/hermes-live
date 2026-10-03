@@ -32,12 +32,16 @@ an InterruptionFrame that cancels in-flight LLM/TTS output.
    `config.yaml` under `llm.base_url`).
 2. Start your TTS server (endpoint under `tts.base_url`). Note the rate it
    emits on `/v1/audio/speech` — it becomes `audio.out_sample_rate`.
-3. Set up the environment and run:
-   ```bash
-   pip install -r requirements.txt   # into the project venv
-   cp config_template.yaml config.yaml   # then edit endpoints/models/voice
-   python bot.py
-   ```
+3. Environment — two options:
+   - **No setup needed when running as a Hermes process manager (PM) job** — the
+     PM venv reads `pyproject.toml` and handles dependencies automatically.
+   - **Standalone run:** create a project venv if you want this isolated from
+     Hermes —
+     ```bash
+     cp config_template.yaml config.yaml   # then edit endpoints/models/voice
+     uv sync   # or: pip install .
+     python bot.py
+     ```
    The mic requires a host-native python — e.g. from WSL, run the Windows venv's
    `python.exe`; a WSL-side python cannot open the audio device. The bot itself
    is CPU-only (STT included).
@@ -101,6 +105,7 @@ engine may need a one-time long warmup on its first synthesis.
 ## Layout
 
 - `bot.py` — pipeline assembly + runner
+- `pyproject.toml` — dependency source of truth (PM venv installs from it; standalone users run `uv sync` / `pip install .`)
 - `config.py` — read-only yaml loader (zero parameters here)
 - `config.yaml` — every endpoint, model/voice name, sample rate, VAD knob
   (gitignored; copied from the template)
