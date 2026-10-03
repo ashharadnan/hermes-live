@@ -44,8 +44,12 @@ cd <project-root>
 .venv/Scripts/python.exe bot.py        # Windows venv from WSL
 # or: .venv/bin/python bot.py          # POSIX venv
 
-# lint (round-scoped: only files touched this round; ruff must be available)
-ruff check --select E,F,W,I,N,UP,B,SIM,PLW config.py bot.py services/*.py
+# lint — select set is pinned in pyproject [tool.ruff.lint], so a plain
+# run is exactly the gate; round-scope only files touched where useful
+ruff check .
+
+# test suite (offline; see Testing below)
+.venv/Scripts/python.exe -m pytest tests/ -q     # or .venv/bin/python
 
 # compile gate
 .venv/Scripts/python.exe -m py_compile config.py bot.py services/*.py
@@ -62,6 +66,53 @@ never start or kill them unasked. A TTS engine may need a one-time long warmup
 (10-26 s) on its first synthesis after boot — never report it as pipeline
 latency.
 
+## Testing protocol
+
+Offline suite in `tests/` — no LLM/TTS servers, no mic. Needs the `test`
+extra (`uv pip install -e ".[test]"` or `pip install -e ".[test]"`), a copied
+config.yaml, and `model_cache/` warm (Moonshine loads ~1 s warm; cold cache
+downloads once).
+
+```bash
+.venv/Scripts/python.exe -m pytest tests/ -q
+```
+
+Coverage per module: `test_config` (loader gate: sections/keys/types, read-only
+guard, error paths, template structure parity), `test_llm_service` (settings
+pinning, thinking-off flag in extra_body), `test_tts_service` (VALID_VOICES
+gate, pcm pass-through via stubbed HTTP), `test_stt_service` (real Moonshine
+transcription ground truth vs `tests/data/hello.wav`), `test_vad` (state
+machine with stubbed model), `test_pipeline_assembly` (AGENTS.md invariants:
+order, VAD placement, shared context, rates from config), `test_frame_flow`
+(user-turn aggregation, LLM chunk streaming), `test_bot_contract` (import
+gate, cache redirect, neutral naming, ast-scan for hardcoded tunables).
+
+Extending the suite — conventions every new test must follow:
+
+- **Never hit the network.** Stub the OpenAI client at `service._client`
+  (MagicMock/AsyncMock shaped like AsyncOpenAI); the voice-gate test must also
+  assert zero request attempts on rejection paths.
+- **Fresh-clone safety lives in conftest only.** `collect_ignore` switches all
+  config-touching modules off when config.yaml is absent. Do NOT add per-test
+  skip guards for missing config — module-level imports crash before any skip
+  fires (learned the hard way: six dead guards).
+- **Mock shapes match installed 1.12, verified against source:**
+  `get_chat_completions` is a coroutine returning a stream (drive with
+  `stream = await svc.get_chat_completions(ctx)`); chunk->LLMTextFrame
+  conversion happens in `svc._process_context` (capture by stubbing
+  `svc.push_frame`); TTS `run_tts` needs a fake where `r.iter_bytes` is an
+  async GENERATOR (`AsyncMock(side_effect=async_gen)`, not
+  `return_value=`).
+- **VAD state tests stub the model** (`vad._model` = callable returning
+  `[confidence]` plus `reset_states()`) — the real Silero is speech-trained
+  and reads synthetic tones as silence. Use a FRESH analyzer per scenario:
+  the volume tracker's smoothed state persists across calls.
+- **loguru capture:** the sink callable receives the formatted STRING.
+- **Timeouts:** pytest.ini carries a 120 s blanket; add tighter per-test
+  `@pytest.mark.timeout` only for slow real-inference tests (STT).
+- **Zero hardcoded tunables in tests too** — derive expected values from
+  `CFG.*`; the bot-contract AST scan is the pattern for enforcing it.
+
 ## Code style
 
 Google docstrings; ASCII-only; comments only where strictly necessary (single
@@ -71,7 +122,7 @@ numbers (they belong in config.yaml). Ruff-clean required.
 ## Verification workflow (before declaring done)
 
 1. Delete any stray probe/scratch files created during the round
-2. ruff (round-scoped) + py_compile (above)
+2. `ruff check .` + py_compile + offline suite (`pytest tests/ -q`, above)
 3. Import the bot as a module in the project venv
    (`importlib.util.spec_from_file_location("bot", "bot.py")`) to catch wiring
    regressions without starting the pipeline
@@ -93,9 +144,3 @@ numbers (they belong in config.yaml). Ruff-clean required.
 - Probe scripts must live on paths visible to the venv's python — a Windows
   venv python resolves WSL paths like `/home/...` against the drive root
 - Moonshine downloads model weights on first use
-
-## Milestone log
-
-Current next steps: barge-in verification, multi-turn context sanity, optional
-server-side streaming lane (faster first byte; adjust pipecat's output rate to
-the streaming branch's rate), Moonshine accuracy tuning.

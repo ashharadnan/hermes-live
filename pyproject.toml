@@ -12,6 +12,11 @@ dependencies = [
 
 [project.optional-dependencies]
 lint = ["ruff>=0.8"]
+test = [
+    "pytest>=8",
+    "pytest-asyncio>=1",
+    "pytest-timeout>=2.4",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -24,3 +29,7 @@ packages = ["services"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+
+[tool.ruff.lint]
+# The project gate's exact select set -- `ruff check .` and CI agree with it.
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "PLW"]
