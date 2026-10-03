@@ -1,0 +1,4 @@
+pipecat-ai
+pipecat-ai[silero]
+pipecat-ai[moonshine]
+pipecat-ai[openai]

@@ -1,0 +1,32 @@
+# Template — copy to config.yaml and edit. config.yaml is gitignored.
+# Contract: audio.out_sample_rate MUST match the TTS server's output PCM rate,
+# or audio plays pitch-dropped / slow.
+
+llm:
+  base_url: http://127.0.0.1:18080/v1   # OpenAI-compatible endpoint
+  model: gemma-4-12b                    # name as server registered it
+  api_key: abc-123456                   # API key for endpoint
+  enable_thinking: false                # MUST stay false: thinking = multiple seconds of silence
+  system_prompt: >-
+    You are a responsive voice assistant. Keep answers short and conversational:
+    one to three sentences unless asked for detail. Plain spoken prose - no
+    markdown, no lists, no parentheses.
+
+tts:
+  base_url: http://127.0.0.1:8004/v1    # OpenAI-shaped endpoint
+  model: chatterbox-turbo               # TTS model name
+  voice: Dee                            # voice reference
+  stop_frame_timeout_s: 15.0            # no-audio window; default 3.0s is too tight under GPU load
+
+audio:
+  in_sample_rate: 16000                 # Moonshine expects 16 kHz mono
+  out_sample_rate: 44100                # must equal server's audio_output.sample_rate
+
+stt:
+  cache_dir: model_cache                # Moonshine ONNX model cache (project-relative)
+
+vad:
+  confidence: 0.7                       # MinConfidence for voice detection
+  start_secs: 0.2                       # speech confirmed after this much
+  stop_secs: 0.2                        # silence confirmed after this much
+  min_volume: 0.6                       # floor below which audio is ignored
