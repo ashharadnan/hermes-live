@@ -20,7 +20,9 @@ tts:
 
 audio:
   in_sample_rate: 16000                 # Moonshine expects 16 kHz mono
-  out_sample_rate: 44100                # must equal server's audio_output.sample_rate
+  out_sample_rate: 24000                # must equal the rate the TTS server ACTUALLY emits
+                                        # on the branch the client hits: engine-native 24 kHz
+                                        # when streaming, audio_output.sample_rate when not
 
 stt:
   cache_dir: model_cache                # Moonshine ONNX model cache (project-relative)
