@@ -12,7 +12,8 @@ nothing shares GPU code. Built on pipecat 1.12.0.
 correct playback speed. **Barge-in verified** (user speech mid-reply cancels
 in-flight LLM/TTS in milliseconds, repeatable) and **multi-turn context
 verified** (the bot recalls prior turns, including ones interrupted mid-reply).
-Remaining: settle the streaming-vs-non-streaming TTS lane by ear (see Roadmap).
+**Mid-reply starvation gaps fixed** via sentence-batched TTS requests (see
+Status of the lane experiment in Roadmap).
 
 ## Architecture
 
@@ -60,10 +61,11 @@ an InterruptionFrame that cancels in-flight LLM/TTS output.
 restart the bot, that's it.
 
 What you'll typically point at your setup: LLM endpoint/model/`enable_thinking`
-(the flag the LLM honors — see gotchas) /system prompt; TTS model/voice
-reference clip/timeout; audio in/out sample rates; STT model cache location;
-VAD thresholds. A committed `config_template.yaml` documents every key with its
-default.
+(the flag the LLM honours — see gotchas) /system prompt; TTS endpoint/model/
+voice reference/timeout/**aggregation mode** (`tts.aggregation_mode`: sentence
+|token|batch, with `tts.batch_lead`/`batch_carry` for batch); audio in/out
+sample rates; STT model cache location; VAD thresholds. A committed
+`config_template.yaml` documents every key with its default.
 
 ## Measured performance (live, co-resident GPU servers, warm, low contention)
 
@@ -80,16 +82,17 @@ Reference setup those numbers came from:
 - **Pipeline:** `/v1/audio/speech` lane at `audio.out_sample_rate` from
   config.yaml (both the non-streaming 44.1 kHz lane and the server-streaming
   24 kHz lane were measured — no first-byte gain from streaming, slower
-  big-text completion; the live config may sit on either — it is the
-  source of truth); metrics are pipecat's per-leg TTFB/TTFA
+  big-text completion; the live config sits on the streaming 24 kHz lane);
+  TTS requests are **sentence-batched** (`batch(2,2)`: two sentences per
+  request); metrics are pipecat's per-leg TTFB/TTFA
 
 | Metric | Value |
 |---|---|
-| Moonshine STT TTFB | 0.44–0.86 s |
+| Moonshine STT TTFB | 0.41–1.07 s |
 | LLM TTFB | 0.05–0.77 s (warm server cache reaches ~0.1 s) |
-| TTS first byte | 1.78–3.64 s (lane-dependent) |
-| TTFA (first audible sample) | 1.88–3.73 s |
-| First spoken word after user stops | ~2.8–3.7 s |
+| TTS first byte (per batch) | 1.26–3.82 s |
+| TTFA (first audible sample) | 1.22–3.90 s |
+| First spoken word after user stops | ~2.8–3.9 s |
 
 Under GPU contention the TTS TTFA alone blew up to 21 s — keep measurement runs
 clean. First-run note: Moonshine's model downloads once on first use (into
@@ -150,19 +153,25 @@ transcribe `tests/data/hello.wav` (16 kHz mono reference clip).
 - `services/llamacpp_llm.py` — generic OpenAI-compatible LLM client, thinking
   flag forced off on every request
 - `services/chatterbox_tts.py` — generic OpenAI-shaped TTS client, PCM
-  streaming, custom voice registered client-side
+  streaming, custom voice registered client-side, aggregation-mode selection
+  (sentence/token/batch)
+- `services/sentence_batch.py` — sentence-batching TTS aggregator (release one
+  group of `lead`/`carry` sentences per request — kills mid-reply starvation
+  gaps; 9 dedicated tests)
 - `tests/` — offline test suite: config loader gate, LLM/TTS/STT services, VAD
-  state machine, pipeline assembly invariants, frame flow, bot contracts
+  state machine, pipeline assembly invariants, frame flow, bot contracts,
+  sentence-batch rhythm/loss/lifecycle
 
 ## Roadmap
 
-1. **TTS lane decision (open)** — measured across three batteries: streaming
-   lane gives no first-byte gain and slower big-text completion than
-   non-streaming on the same engine; the 44.1 kHz non-streaming output rate
-   resamples and serializes badly under concurrent load. Current live choice:
-   server-side streaming ON with engine-native 24 kHz. Settle by ear
-   (crossfade seams vs single-pass render) and keep whichever wins.
-2. **Moonshine accuracy** — check transcription quality; tune VAD thresholds or
+1. **Moonshine accuracy** — check transcription quality; tune VAD thresholds or
    swap variant if weak.
-3. Later: remote transports (Discord/WebRTC), spoken-prose rewrite layer, wake
+2. Later: remote transports (Discord/WebRTC), spoken-prose rewrite layer, wake
    word, duplex turn-taking.
+
+Lane experiment (settled 2026-10-03, for the record): server-side streaming-ON
+(24 kHz native) + sentence `batch(2,2)` = shipped config — sentence-level
+starvation gaps eliminated at TTFA 1.5–2.5s. Token aggregation measured
+architecturally wrong for request-per-call engines (one request per word, each
+paying engine startup); uniform pairs beat both lead=1/carry=2 (slow TTFA +
+first-sentence gap) and lead=2/carry=1 (one early gap) in a live A/B.
