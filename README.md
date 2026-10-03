@@ -1,5 +1,9 @@
 # Local Live Voice Assistant for Hermes Agent
 
+> **THIS PROJECT IS NOT HERMES READY YET.** Do not wire it into Hermes process
+> management as-is — it runs standalone today; Hermes/PM integration is future
+> work (see Roadmap).
+
 A fully local, half-duplex-but-interruptible voice assistant: Moonshine STT ->
 any OpenAI-compatible LLM -> any OpenAI-compatible TTS, wired over HTTP so
 nothing shares GPU code. Built on pipecat 1.12.0.
