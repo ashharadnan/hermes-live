@@ -2,8 +2,10 @@
 
 from loguru import logger
 from pipecat.services.openai.tts import VALID_VOICES, OpenAITTSService
+from pipecat.utils.text.base_text_aggregator import AggregationType
 
 from config import CFG
+from services.two_sentence import TwoSentenceAggregator
 
 
 class ChatterboxTTSService(OpenAITTSService):
@@ -20,16 +22,22 @@ class ChatterboxTTSService(OpenAITTSService):
         # Client-side voice gate rejects non-OpenAI voices before any request.
         VALID_VOICES[voice] = voice
         mode = CFG.tts.aggregation_mode
-        if mode not in ("sentence", "token"):
-            raise ValueError(f"tts.aggregation_mode '{mode}' is not sentence/token")
+        if mode not in ("sentence", "two_sentence", "token"):
+            raise ValueError(
+                f"tts.aggregation_mode '{mode}' is not sentence/two_sentence/token"
+            )
         super().__init__(
             api_key="not-needed",
             base_url=base_url,
             settings=self.Settings(model=model, voice=voice),
             stop_frame_timeout_s=CFG.tts.stop_frame_timeout_s,
-            text_aggregation_mode=mode,
+            text_aggregation_mode="token" if mode == "token" else "sentence",
             **kwargs,
         )
+        if mode == "two_sentence":
+            self._text_aggregator = TwoSentenceAggregator(
+                aggregation_type=AggregationType.SENTENCE,
+            )
         logger.info(
             f"ChatterboxTTSService -> {base_url} model={model} voice={voice}"
             f" aggregation={mode}"
