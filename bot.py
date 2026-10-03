@@ -18,8 +18,9 @@ from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.runner import PipelineRunner
-from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.pipeline.runner import WorkerRunner
+from pipecat.pipeline.task import PipelineParams
+from pipecat.pipeline.worker import PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
@@ -89,7 +90,7 @@ async def main() -> None:
         ]
     )
 
-    task = PipelineTask(
+    task = PipelineWorker(
         pipeline,
         params=PipelineParams(
             audio_in_sample_rate=CFG.audio.in_sample_rate,
@@ -107,8 +108,9 @@ async def main() -> None:
         logger.info("Session ended")
         await task.cancel()
 
-    runner = PipelineRunner()
-    await runner.run(task)
+    runner = WorkerRunner()
+    await runner.add_workers(task)
+    await runner.run()
 
 
 if __name__ == "__main__":
